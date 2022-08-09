@@ -8,12 +8,12 @@ import json
 import urllib
 import os
 
-DB_SERVER = os.getenv('MONGO_SERV')
-DB_USERNAME = urllib.parse.quote(os.getenv('DB_USERNAME'))
-DB_PASSWORD = urllib.parse.quote(os.getenv('DB_PASSWORD'))
+DB_SERVER = os.getenv("MONGO_SERV")
+DB_USERNAME = urllib.parse.quote(os.getenv("DB_USERNAME"))
+DB_PASSWORD = urllib.parse.quote(os.getenv("DB_PASSWORD"))
 
 client = MongoClient(
-    f'mongodb+srv://{DB_USERNAME}:{DB_PASSWORD}@{DB_SERVER}/?retryWrites=true&w=majority'
+    f"mongodb+srv://{DB_USERNAME}:{DB_PASSWORD}@{DB_SERVER}/?retryWrites=true&w=majority"
 )
 db = client.projectsDB  # database name
 exp_col = db.expenses  # collection name
@@ -31,31 +31,31 @@ async def record_expense(expense: Expense):
     return {"success": True}
 
 
-@app.get("/getrecords")
-async def get_records(key: str = None, val: str = None):
+@app.get("/getrecords/date")
+async def get_records(date: str):
     """get records by key val filter"""
     records = []
     try:
-        items = exp_col.find() if key == None and val == None else exp_col.find(
-            {key: val})
+        items = exp_col.find({"date": {"$regex": date}})
         for item in items:
             item = dict(item)
-            item.pop('_id')
+            item.pop("_id")
             records.append(item)
     except Exception as e:
         return {"success": False, "error": str(e)}
     return {"success": True, "records": records}
 
 
-@app.get("/getsummary/<yymm>")
-async def get_summary(yymm: str):
-    """get expenses summary for a month"""
+@app.get("/getsummary/date/column")
+async def get_summary(date: str, column: str = "date"):
+    """get expenses summary for a month either by date(default) or expense_type"""
     try:
-        #read the collection and create df
+        # read the collection and create df
         df = pd.DataFrame(exp_col.find())
-        tdf = df[df['date'].astype(str).str.contains(yymm)]
-        summary =  json.loads(tdf[['amount', 'expense_type']].groupby('expense_type').agg('sum').to_json())["amount"]
+        tdf = df[df["date"].astype(str).str.contains(date)]
+        summary = json.loads(
+            tdf[["amount", column]].groupby(column).agg("sum").to_json()
+        )["amount"]
     except Exception as e:
         return {"success": False, "error": str(e)}
     return {"success": True, "summary": summary}
-    
